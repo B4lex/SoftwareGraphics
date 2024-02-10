@@ -7,9 +7,12 @@
 #define wWidth 1280
 #define wHeight 720
 
+typedef uint8_t u8;
+typedef uint32_t u32;
+
 static bool isWindowOpen = true;
 
-LRESULT WindowCallback(
+LRESULT WindowEventCallback(
     HWND    hWnd,
     UINT    message,
     WPARAM  wParam,
@@ -33,6 +36,14 @@ LRESULT WindowCallback(
     return result;
 }
 
+u32 GetRGBA(
+    u8 Red,
+    u8 Green,
+    u8 Blue,
+    u8 Alpha
+) {
+    return ((u32)Alpha << 24) | ((u32)Red << 16) | ((u32)Green << 8) | (u32)Blue;
+}
 
 int WINAPI WinMain(
     _In_ HINSTANCE hInstance,
@@ -43,7 +54,7 @@ int WINAPI WinMain(
     // Instantiating window class
     WNDCLASSA windowClass = {};
     windowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
-    windowClass.lpfnWndProc = WindowCallback;
+    windowClass.lpfnWndProc = WindowEventCallback;
     windowClass.hInstance = hInstance;
     windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     windowClass.lpszClassName = "Rasterizer";
@@ -71,12 +82,12 @@ int WINAPI WinMain(
     RECT clientRect = {};
     assert(GetClientRect(window, &clientRect));
 
-    const uint32_t framebufferHeight = clientRect.bottom - clientRect.top;
-    const uint32_t framebufferWidth = clientRect.right - clientRect.left;
+    const u32 framebufferHeight = clientRect.bottom - clientRect.top;
+    const u32 framebufferWidth = clientRect.right - clientRect.left;
 
     // Bitmap
     size_t bitMapSize = framebufferHeight * framebufferWidth;
-    uint32_t* bitMap = (uint32_t*)malloc(sizeof(uint32_t) * bitMapSize);
+    u32* bitMap = (u32*)malloc(sizeof(u32) * bitMapSize);
     assert(bitMap);
 
     for (size_t y = 0; y < framebufferHeight; ++y)
@@ -84,12 +95,43 @@ int WINAPI WinMain(
         for (size_t x = 0; x < framebufferWidth; ++x)
         {
             size_t pixelIdx = framebufferWidth * y + x;
-            bitMap[pixelIdx] = 0xFFEBA228;
+            bitMap[pixelIdx] = GetRGBA(
+                (u8)x,
+                0,
+                (u8)y,
+                255
+            );
         }
     }
 
     // GDI
     HDC deviceContext = GetDC(window);
+
+    // Rendering bitmap
+    BITMAPINFO bitMapInfo = {};
+
+    bitMapInfo.bmiHeader.biSize = sizeof(BITMAPINFO);
+    bitMapInfo.bmiHeader.biWidth = framebufferWidth;
+    bitMapInfo.bmiHeader.biHeight = framebufferHeight;
+    bitMapInfo.bmiHeader.biPlanes = 1;
+    bitMapInfo.bmiHeader.biBitCount = sizeof(u32) * 8;
+    bitMapInfo.bmiHeader.biCompression = BI_RGB;
+
+    assert(StretchDIBits(
+        deviceContext,
+        0,
+        0,
+        framebufferWidth,
+        framebufferHeight,
+        0,
+        0,
+        framebufferWidth,
+        framebufferHeight,
+        bitMap,
+        &bitMapInfo,
+        DIB_RGB_COLORS,
+        SRCCOPY
+    ));
     
     // Main loop
     while (isWindowOpen) {
@@ -102,31 +144,6 @@ int WINAPI WinMain(
                 DispatchMessageA(&message);
             }
         }
-
-        BITMAPINFO bitMapInfo = {};
-
-        bitMapInfo.bmiHeader.biSize = sizeof(BITMAPINFO);
-        bitMapInfo.bmiHeader.biWidth = framebufferWidth;
-        bitMapInfo.bmiHeader.biHeight = framebufferHeight;
-        bitMapInfo.bmiHeader.biPlanes = 1;
-        bitMapInfo.bmiHeader.biBitCount = sizeof(uint32_t) * 8;
-        bitMapInfo.bmiHeader.biCompression = BI_RGB;
-
-        assert(StretchDIBits(
-            deviceContext,
-            0,
-            0,
-            framebufferWidth,
-            framebufferHeight,
-            0,
-            0,
-            framebufferWidth,
-            framebufferHeight,
-            bitMap,
-            &bitMapInfo,
-            DIB_RGB_COLORS,
-            SRCCOPY
-        ));
     }
 
     free(bitMap);
