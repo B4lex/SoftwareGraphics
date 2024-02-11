@@ -79,59 +79,21 @@ int WINAPI WinMain(
 
     assert(window);
 
-    RECT clientRect = {};
-    assert(GetClientRect(window, &clientRect));
-
-    const u32 framebufferHeight = clientRect.bottom - clientRect.top;
-    const u32 framebufferWidth = clientRect.right - clientRect.left;
-
     // Bitmap
-    size_t bitMapSize = framebufferHeight * framebufferWidth;
+    size_t bitMapSize = wHeight * wWidth;
     u32* bitMap = (u32*)malloc(sizeof(u32) * bitMapSize);
     assert(bitMap);
-
-    for (size_t y = 0; y < framebufferHeight; ++y)
-    {
-        for (size_t x = 0; x < framebufferWidth; ++x)
-        {
-            size_t pixelIdx = framebufferWidth * y + x;
-            bitMap[pixelIdx] = GetRGBA(
-                (u8)x,
-                0,
-                (u8)y,
-                255
-            );
-        }
-    }
 
     // GDI
     HDC deviceContext = GetDC(window);
 
-    // Rendering bitmap
+#   // Bitmap metadata initialization
     BITMAPINFO bitMapInfo = {};
 
     bitMapInfo.bmiHeader.biSize = sizeof(BITMAPINFO);
-    bitMapInfo.bmiHeader.biWidth = framebufferWidth;
-    bitMapInfo.bmiHeader.biHeight = framebufferHeight;
     bitMapInfo.bmiHeader.biPlanes = 1;
     bitMapInfo.bmiHeader.biBitCount = sizeof(u32) * 8;
     bitMapInfo.bmiHeader.biCompression = BI_RGB;
-
-    assert(StretchDIBits(
-        deviceContext,
-        0,
-        0,
-        framebufferWidth,
-        framebufferHeight,
-        0,
-        0,
-        framebufferWidth,
-        framebufferHeight,
-        bitMap,
-        &bitMapInfo,
-        DIB_RGB_COLORS,
-        SRCCOPY
-    ));
     
     // Main loop
     while (isWindowOpen) {
@@ -144,6 +106,50 @@ int WINAPI WinMain(
                 DispatchMessageA(&message);
             }
         }
+
+        RECT clientRect = {};
+
+        assert(GetClientRect(window, &clientRect));
+        const u32 framebufferHeight = clientRect.bottom - clientRect.top;
+        const u32 framebufferWidth = clientRect.right - clientRect.left;
+           
+        const u32 renderBitMapHeight = min(framebufferHeight, wHeight);
+        const u32 renderBitMapWidth = min(framebufferWidth, wWidth);
+
+
+        for (size_t y = 0; y < renderBitMapHeight; ++y)
+        {
+            for (size_t x = 0; x < renderBitMapWidth; ++x)
+            {
+                size_t pixelIdx = renderBitMapWidth * y + x;
+                bitMap[pixelIdx] = GetRGBA(
+                    (u8)x,
+                    0,
+                    (u8)y,
+                    255
+                );
+            }
+        }
+
+        // Rendering bitmap
+        bitMapInfo.bmiHeader.biWidth = framebufferWidth;
+        bitMapInfo.bmiHeader.biHeight = framebufferHeight;
+
+        assert(StretchDIBits(
+            deviceContext,
+            0,
+            0,
+            renderBitMapWidth,
+            framebufferHeight,
+            0,
+            0,
+            renderBitMapWidth,
+            renderBitMapHeight,
+            bitMap,
+            &bitMapInfo,
+            DIB_RGB_COLORS,
+            SRCCOPY
+        ));
     }
 
     free(bitMap);
