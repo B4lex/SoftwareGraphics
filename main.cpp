@@ -140,7 +140,7 @@ int WINAPI WinMain(
             0,
             0,
             renderBitMapWidth,
-            framebufferHeight,
+            renderBitMapHeight,
             0,
             0,
             renderBitMapWidth,
