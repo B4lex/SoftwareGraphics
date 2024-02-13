@@ -6,9 +6,11 @@
 
 #define wWidth 1280
 #define wHeight 720
+#define transitionSpeed 100.f
 
 typedef uint8_t u8;
 typedef uint32_t u32;
+typedef float f32;
 
 static bool isWindowOpen = true;
 
@@ -94,9 +96,22 @@ int WINAPI WinMain(
     bitMapInfo.bmiHeader.biPlanes = 1;
     bitMapInfo.bmiHeader.biBitCount = sizeof(u32) * 8;
     bitMapInfo.bmiHeader.biCompression = BI_RGB;
+
+    // Frame time stuff initialization
+    LARGE_INTEGER counterFreq = {};
+    assert(QueryPerformanceFrequency(&counterFreq));
+
+    LARGE_INTEGER frameStartTime = {}, frameEndTime = {};
+    assert(QueryPerformanceCounter(&frameStartTime));
+
+    float pixelOffset = 0;
     
     // Main loop
     while (isWindowOpen) {
+        assert(QueryPerformanceCounter(&frameEndTime));
+        f32 frameTime = (f32)(frameEndTime.QuadPart - frameStartTime.QuadPart) / (f32)counterFreq.QuadPart;
+        frameStartTime = frameEndTime;
+
         MSG message = {};
         while (PeekMessageA(&message, window, NULL, NULL, PM_REMOVE)) {
             if (message.message == WM_QUIT) {
@@ -107,6 +122,8 @@ int WINAPI WinMain(
             }
         }
 
+
+        // Recalculating bitmap
         RECT clientRect = {};
 
         assert(GetClientRect(window, &clientRect));
@@ -116,16 +133,16 @@ int WINAPI WinMain(
         const u32 renderBitMapHeight = min(framebufferHeight, wHeight);
         const u32 renderBitMapWidth = min(framebufferWidth, wWidth);
 
-
+        pixelOffset += transitionSpeed * frameTime;
         for (size_t y = 0; y < renderBitMapHeight; ++y)
         {
             for (size_t x = 0; x < renderBitMapWidth; ++x)
             {
                 size_t pixelIdx = renderBitMapWidth * y + x;
                 bitMap[pixelIdx] = GetRGBA(
-                    (u8)x,
+                    (u8)(x - pixelOffset),
                     0,
-                    (u8)y,
+                    (u8)(y - pixelOffset),
                     255
                 );
             }
